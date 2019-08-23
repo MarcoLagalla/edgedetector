@@ -7,16 +7,18 @@
 #include <omp.h>
 
 #define REPETITIONS 1
-#define CHUNKS 16
+#define MAX_FILES 300
+
+#define CHUNKS 8
 #define THREADS 16
 #define BLOCKS 16
 
-double serialExecution(int times);
-double parallelHorizontalExecution(int times);
-double parallelVerticalExecution(int times);
-double parallelBlocksExecution(int times);
+void readFolder(const char *inputImgFolder);
+double serialExecution(int times,const char *inputImgFolder);
+double parallelHorizontalExecution(int times,const char *inputImgFolder);
+double parallelVerticalExecution(int times,const char *inputImgFolder);
+double parallelBlocksExecution(int times, const char *inputImgFolder);
 
-char *inputImgFolder = "/home/marco/Scrivania/test/"; // without the last slash will fail!
 
 
 int main() {
@@ -24,30 +26,65 @@ int main() {
 
     std::cout << "Welcome to Sobel edges detector :)" << std::endl;
 
-    std::cout << "[SERIAL]" << std::endl;
-    double serial = serialExecution(REPETITIONS);
-    std::cout << "Computation time: " << serial / 1000 << "[msec]" << std::endl;
+    std::cout << "Today we will work with " << MAX_FILES << " images for class!" << std::endl;
 
-    std::cout << "[PARALLEL - HORIZONTAl]" << std::endl;
-    double horizontal = parallelHorizontalExecution(REPETITIONS);
-    std::cout << "Computation time: " << horizontal / 1000 << "[msec]" << std::endl;
+    char *inputImgFolder = "/home/marco/Scrivania/dataset/"; // without the last slash will fail!
 
-    std::cout << "[PARALLEL - VERTICAL]" << std::endl;
-    double vertical = parallelVerticalExecution(REPETITIONS);
-    std::cout << "Computation time: " << vertical / 1000 << "[msec]" << std::endl;
+    DIR *dir;
+    struct dirent *ent;
+    if ((dir = opendir (inputImgFolder)) != NULL) {
+        while ((ent = readdir (dir)) != NULL) {
+            if (ent->d_type == 4) {
+                if ( !strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..") ) {
+                   // do nothing
+                } else {
+                    std::cout << "Processing folder: " << ent->d_name << std::endl;
+                    std::string buf(inputImgFolder);
+                    buf.append(ent->d_name);
+                    buf.append("/"); // hard coded ? :)
 
-    std::cout << "[PARALLEL - BLOCKS] --> " << BLOCKS << " BLOCKS" << std::endl;
-    double blocks = parallelBlocksExecution(REPETITIONS);
-    std::cout << "Computation time: " << blocks / 1000 << "[msec]" << std::endl;
+                    readFolder(buf.c_str());
+
+                }
+
+            }
+        }
+
+
+    }
+  //  readFolder(inputImgFolder);
 
     std::cout << "Done, bye :)";
 
     return 0;
 }
 
+void readFolder(const char *inputImgFolder) {
+    std::cout << "\n\n[SERIAL]" << std::endl;
+    double serial = serialExecution(REPETITIONS,inputImgFolder);
+    std::cout << "Computation time: " << serial / 1000 << "[msec]" << std::endl;
 
+    std::cout << "[PARALLEL - HORIZONTAl]" << std::endl;
+    double horizontal = parallelHorizontalExecution(REPETITIONS,inputImgFolder);
+    std::cout << "Computation time: " << horizontal / 1000 << "[msec]" << std::endl;
 
-double serialExecution(int times) {
+    std::cout << "[PARALLEL - VERTICAL]" << std::endl;
+    double vertical = parallelVerticalExecution(REPETITIONS,inputImgFolder);
+    std::cout << "Computation time: " << vertical / 1000 << "[msec]" << std::endl;
+
+    std::cout << "[PARALLEL - BLOCKS] --> " << BLOCKS << " BLOCKS" << std::endl;
+    double blocks = parallelBlocksExecution(REPETITIONS,inputImgFolder);
+    std::cout << "Computation time: " << blocks / 1000 << "[msec]" << std::endl;
+
+    // speed up
+    double hSpeedUP = serial / horizontal;
+    double vSpeedUP = serial / vertical;
+    double bSpeedUP = serial / blocks;
+    std::cout << "\n\n\t\t\t" << "H\t\tV\t\tB" << std::endl;
+    std::cout << "SpeedUp:\t" <<  hSpeedUP << "\t" << vSpeedUP << "\t" << bSpeedUP << std::endl;
+}
+
+double serialExecution(int times,const char *inputImgFolder) {
 
     double executionTime = 0;
 
@@ -64,6 +101,12 @@ double serialExecution(int times) {
 
             auto startSerialExecutionTime = std::chrono::high_resolution_clock::now();
             while ((ent = readdir (dir)) != NULL) {
+
+                if (i >= MAX_FILES) {
+                    break; // exit after MAX_FILES
+                }
+
+
                 if (ent->d_type == 8) { // 8 stands for image
                     std::string buf(inputImgFolder);
                     buf.append(ent->d_name);
@@ -102,7 +145,7 @@ double serialExecution(int times) {
     return executionTime / times; // average time over #times repetitions
 }
 
-double parallelHorizontalExecution(int times) {
+double parallelHorizontalExecution(int times,const char *inputImgFolder) {
 
     double executionTime = 0;
 
@@ -118,6 +161,11 @@ double parallelHorizontalExecution(int times) {
             /* print all the files and directories within directory */
             auto startParallelExecutionTime_Horizontal = std::chrono::high_resolution_clock::now();
             while ((ent = readdir(dir)) != NULL) {
+
+                if (i >= MAX_FILES) {
+                    break; // exit after MAX_FILES
+                }
+
                 if (ent->d_type == 8) { // 8 stands for image
                     std::string buf(inputImgFolder);
                     buf.append(ent->d_name);
@@ -159,7 +207,7 @@ double parallelHorizontalExecution(int times) {
     return executionTime / times; // average time
 }
 
-double parallelVerticalExecution(int times) {
+double parallelVerticalExecution(int times, const char *inputImgFolder) {
 
     double executionTime = 0;
 
@@ -175,6 +223,11 @@ double parallelVerticalExecution(int times) {
             /* print all the files and directories within directory */
             auto startParallelExecutionTime_Horizontal = std::chrono::high_resolution_clock::now();
             while ((ent = readdir(dir)) != NULL) {
+
+                if (i >= MAX_FILES) {
+                    break; // exit after MAX_FILES
+                }
+
                 if (ent->d_type == 8) { // 8 stands for image
                     std::string buf(inputImgFolder);
                     buf.append(ent->d_name);
@@ -215,7 +268,7 @@ double parallelVerticalExecution(int times) {
     return executionTime / times; // average time
 }
 
-double parallelBlocksExecution(int times) {
+double parallelBlocksExecution(int times, const char *inputImgFolder) {
 
     double executionTime = 0;
 
@@ -231,6 +284,11 @@ double parallelBlocksExecution(int times) {
             /* print all the files and directories within directory */
             auto startParallelExecutionTime_Horizontal = std::chrono::high_resolution_clock::now();
             while ((ent = readdir(dir)) != NULL) {
+
+                if (i >= MAX_FILES) {
+                    break; // exit after MAX_FILES
+                }
+
                 if (ent->d_type == 8) { // 8 stands for image
                     std::string buf(inputImgFolder);
                     buf.append(ent->d_name);
