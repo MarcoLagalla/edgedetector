@@ -31,6 +31,7 @@ public:
     int getChunksNum();
     int isPerfect(long n);
     double getComputationTime();
+    void writeToFile(std::string outputDirectory);
 
 private:
 

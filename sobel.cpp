@@ -12,6 +12,19 @@ Sobel::Sobel(cv::Mat inImage, const char *imgName) {
     outputImage = processMatrix(inputImage);
 };
 
+/***
+ * Compute the gradient of the image using pixel values. Both axis
+ * @param a
+ * @param b
+ * @param c
+ * @param d
+ * @param e
+ * @param f
+ * @param g
+ * @param h
+ * @param i
+ * @return both x and y gradient
+ */
 Sobel::grad Sobel::gradient(int a, int b,int c, int d,int e, int f, int g, int h, int i) {
 
     grad gradient;
@@ -27,7 +40,19 @@ Sobel::grad Sobel::gradient(int a, int b,int c, int d,int e, int f, int g, int h
     return gradient;
 
 }
-
+/***
+ * [DEPRECATED] Compute the gradient of the image using pixel values. Both axis
+ * @param a
+ * @param b
+ * @param c
+ * @param d
+ * @param e
+ * @param f
+ * @param g
+ * @param h
+ * @param i
+ * @return both x and y gradient
+ */
 Sobel::grad Sobel::gradient(cv::Mat I, int x, int y) {
 
     grad gradient;
@@ -63,6 +88,11 @@ Sobel::grad Sobel::gradient(cv::Mat I, int x, int y) {
 
 }
 
+/***
+ * Starts serial Sobel computation
+ * @param inputImage
+ * @return
+ */
 cv::Mat Sobel::processMatrix(cv::Mat inputImage) {
 
 
@@ -70,19 +100,30 @@ cv::Mat Sobel::processMatrix(cv::Mat inputImage) {
 
     auto startTime = std::chrono::high_resolution_clock::now();
     cv::Mat outImage(cv::Size(inputImage.cols, inputImage.rows), CV_8UC1, cv::Scalar(0));
-    //std::cout << "Width: " << outImage.cols << "height: " << outImage.rows << std::endl;
 
-    // compute 3x3 convolution without 1st and last rows and 1st and last column
-    // because convolution is not well defined over borders.
+
+    unsigned char *input = (I.data);
+    int step = I.step;
 
     for(int i=1; i < inputImage.rows -1; i++) {
         for(int j=1; j < inputImage.cols -1; j++) {
             try {
-                grad _gradient = gradient(I.at<uchar>(i-1,j-1), I.at<uchar>(i,j-1), I.at<uchar>(i+1,j-1),
-                                          I.at<uchar>(i-1,j+1), I.at<uchar>(i,j+1), I.at<uchar>(i+1,j+1),
-                                          I.at<uchar>(i-1,j), I.at<uchar>(i+1, j),I.at<uchar>(i,j));
 
-                //grad _gradient = gradient(inputImage,i,j);
+                int a = input[step * (j - 1) + (i - 1)];
+
+                int b = input[step * (j) + (i - 1)];
+                int c = input[step * (j + 1) + (i - 1)];
+
+                int d = input[step * (j - 1) + (i + 1)];
+                int e = input[step * (j) + (i + 1)];
+                int f = input[step * (j + 1) + (i + 1)];
+
+                int g = input[step * (j - 1) + (i)];
+                int h1 = input[step * (j + 1) + (i)];
+                int ik = input[step * (j) + (i)];
+
+                grad _gradient = gradient(a,b,c,d,e,f,g,h1,ik);
+
                 int gradVal = norm2( _gradient.gradX, _gradient.gradY );
 
                 gradVal = gradVal > 255 ? 255:gradVal;
@@ -120,17 +161,36 @@ cv::Mat Sobel::processMatrix(cv::Mat inputImage) {
     return outImage;
 }
 
-
+/***
+ * display the results of edges detection
+ * @param title
+ */
 void Sobel::displayOutputImg(const cv::String title) {
     cv::namedWindow(title, CV_WINDOW_NORMAL);
     imshow(title, outputImage);
     cv::waitKey(0);
 }
 
+/***
+ * return the computation time for the given image
+ * @return
+ */
 long Sobel::getComputationTime() {
     return executionTime;
 }
 
+/***
+ *
+ * @return input image file name
+ */
 const char* Sobel::getInputImageFileName(){
     return inputImageFileName;
+}
+
+/***
+ * write image to file
+ * @param outputDirectory
+ */
+void Sobel::writeToFile(std::string outputDirectory) {
+    cv::imwrite(outputDirectory,outputImage);
 }

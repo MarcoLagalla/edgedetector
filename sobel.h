@@ -21,6 +21,7 @@ public:
     void displayOutputImg(const cv::String title);
     long getComputationTime();
     const char* getInputImageFileName();
+    void writeToFile(std::string outputDirectory);
 
 private:
 
