@@ -139,8 +139,8 @@ double serialExecution(int times,const char *inputImgFolder) {
                         cv::Mat inputImage = imread(buf.c_str() , cv::IMREAD_GRAYSCALE);
                         Sobel mySobel(inputImage,buf.c_str());
 
-                        std::string s = "/home/marco/Scrivania/test1/serial/" + std::string(ent->d_name);
-                        mySobel.writeToFile(s);
+                    //    std::string s = "/home/marco/Scrivania/test1/serial/" + std::string(ent->d_name);
+                   //     mySobel.writeToFile(s);
                         i++;
 
                     } catch (const cv::Exception& e) {
@@ -213,8 +213,8 @@ double parallelHorizontalExecution(int times,const char *inputImgFolder) {
                             mySobel.setChunksNum(CHUNKS);     // how many chunks for image subdivision
                             mySobel.computeHorizontal();      // start computation
 
-                            std::string s = "/home/marco/Scrivania/test1/horizontal/" + std::string(ent->d_name);
-                            mySobel.writeToFile(s);
+                        //    std::string s = "/home/marco/Scrivania/test1/horizontal/" + std::string(ent->d_name);
+                        //    mySobel.writeToFile(s);
 
                           //  #pragma omp atomic
                             i++;
@@ -290,8 +290,8 @@ double parallelVerticalExecution(int times, const char *inputImgFolder) {
                             mySobel.setChunksNum(CHUNKS);
                             mySobel.computeVertical();
 
-                            std::string s = "/home/marco/Scrivania/test1/vertical/" + std::string(ent->d_name);
-                            mySobel.writeToFile(s);
+                           // std::string s = "/home/marco/Scrivania/test1/vertical/" + std::string(ent->d_name);
+                           // mySobel.writeToFile(s);
 
                           //  #pragma omp critical
                             {
@@ -364,8 +364,8 @@ double parallelBlocksExecution(int times, int nBlocks, const char *inputImgFolde
                             mySobel.setThreadsNum(THREADS);
                             mySobel.computeBlocks(nBlocks);
 
-                            std::string s = "/home/marco/Scrivania/test1/blocks/" + std::to_string(nBlocks) + "/" + std::string(ent->d_name);
-                            mySobel.writeToFile(s);
+                         //   std::string s = "/home/marco/Scrivania/test1/blocks/" + std::to_string(nBlocks) + "/" + std::string(ent->d_name);
+                         //   mySobel.writeToFile(s);
                             i++;
 
                         } catch (const cv::Exception &e) {
