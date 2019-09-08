@@ -4,7 +4,7 @@
 
 #include <iostream>
 #include <chrono>
-#include "sobel.h"
+#include "Sobel.h"
 
 Sobel::Sobel(cv::Mat inImage, const char *imgName) {
     inputImage = inImage;
@@ -166,7 +166,7 @@ cv::Mat Sobel::processMatrix(cv::Mat inputImage) {
  * @param title
  */
 void Sobel::displayOutputImg(const cv::String title) {
-    cv::namedWindow(title, CV_WINDOW_NORMAL);
+    cv::namedWindow(title, cv::WINDOW_NORMAL);
     imshow(title, outputImage);
     cv::waitKey(0);
 }

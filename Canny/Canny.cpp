@@ -2,7 +2,7 @@
 // Created by marco on 05/09/19.
 //
 
-#include "canny.h"
+#include "Canny.h"
 #include <vector>
 
 
@@ -10,12 +10,10 @@
 #define LOW_THRESHOLD 40
 
 
-canny::canny(cv::Mat inImage, const char *imgName, int size, double sigma) {
+Canny::Canny(cv::Mat inImage, const char *imgName, int size, double sigma) {
     inputImage = inImage;
     inputImageFileName = imgName;
-
     generateFilter(size, sigma); // create filter
-
 
 }
 
@@ -25,7 +23,7 @@ canny::canny(cv::Mat inImage, const char *imgName, int size, double sigma) {
  * @param sigma
  * @return returns the gaussian filter
  */
-void canny::generateFilter(int size, double sigma) {
+void Canny::generateFilter(int size, double sigma) {
 
     std::vector<std::vector<double>> filter(size, std::vector<double>(size));; // output filter (size*size)
 
@@ -52,15 +50,15 @@ void canny::generateFilter(int size, double sigma) {
     gaussianFilter = filter;
 }
 
-void canny::computeCannyEdgeDetector() {
+void Canny::computeCannyEdgeDetector() {
 
     outputImage = applyGaussianFilter();
     outputImage = sobel(outputImage);
-    outputImage = nonMaximumSupression(outputImage);
+    outputImage = nonMaximumSuppression(outputImage);
     outputImage = doubleThreshold(outputImage);
 
 }
-cv::Mat canny::applyGaussianFilter() {
+cv::Mat Canny::applyGaussianFilter() {
 
 
     cv::Mat outputImage = cv::Mat(inputImage.rows - 2*((int)gaussianFilter.size()/2), inputImage.cols - 2*((int)gaussianFilter.size()/2), CV_8UC1, cv::Scalar(0)); // creates an empty output image
@@ -92,7 +90,7 @@ cv::Mat canny::applyGaussianFilter() {
 
 }
 
-cv::Mat canny::sobel(cv::Mat inputImage) {
+cv::Mat Canny::sobel(cv::Mat inputImage) {
 
     //Sobel X Filter
     double x1[] = {-1.0, 0, 1.0};
@@ -157,7 +155,7 @@ cv::Mat canny::sobel(cv::Mat inputImage) {
 
 
 
-cv::Mat canny::nonMaximumSupression(cv::Mat inputImage) {
+cv::Mat Canny::nonMaximumSuppression(cv::Mat inputImage) {
 
     cv::Mat outputImage = cv::Mat(inputImage.rows-2, inputImage.cols-2, CV_8UC1);
 
@@ -203,7 +201,7 @@ return outputImage;
 }
 
 
-cv::Mat canny::doubleThreshold(cv::Mat inputImage) {
+cv::Mat Canny::doubleThreshold(cv::Mat inputImage) {
 
     cv::Mat outputImage = cv::Mat(inputImage.rows, inputImage.cols, CV_8UC1);
 
@@ -235,6 +233,7 @@ cv::Mat canny::doubleThreshold(cv::Mat inputImage) {
                                     break;
 
                                 } else if( pVal < HIGH_TRESHOLD && pVal > LOW_THRESHOLD) {
+                                    outputImage.at<uchar>(i,j) = 0;
                                     break;
                                 }
                             }
@@ -253,7 +252,7 @@ cv::Mat canny::doubleThreshold(cv::Mat inputImage) {
 }
 
 
-void canny::showOutputImage(char* title) {
+void Canny::showOutputImage(char* title) {
     cv::namedWindow(title, cv::WINDOW_NORMAL);
     imshow(title, outputImage);
     cv::waitKey(0);

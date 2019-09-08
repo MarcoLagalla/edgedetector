@@ -11,11 +11,11 @@
 
 
 
-class canny {
+class Canny {
 
 public:
 
-    canny(cv::Mat inputImage, const char *imgName, int size, double sigma);
+    Canny(cv::Mat inputImage, const char *imgName, int size, double sigma);
     void computeCannyEdgeDetector();
     void showOutputImage(char *title);
 
@@ -30,7 +30,7 @@ private:
     void generateFilter(int size, double sigma);
     cv::Mat applyGaussianFilter();
     cv::Mat sobel(cv::Mat inputImage);
-    cv::Mat nonMaximumSupression(cv::Mat inputImage);
+    cv::Mat nonMaximumSuppression(cv::Mat inputImage);
     cv::Mat doubleThreshold(cv::Mat inputImage);
 
 };

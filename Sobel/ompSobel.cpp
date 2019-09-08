@@ -80,7 +80,7 @@ void ompSobel::computeHorizontal() {
     unsigned char *input = (I.data); // pointer to input image
     int step = I.step;
 
-    #pragma omp parallel for collapse(2) private(i, j) shared(w, h, outImage, chunks, I) schedule(static, chunkSize)
+    #pragma omp parallel for  private(i, j) shared(w, h, outImage, chunks, I) schedule(static, chunkSize)
     for (i = 1; i < h - 1; i++) {
         for (j = 1; j < w - 1; j++) {
             try {
@@ -143,6 +143,7 @@ void ompSobel::computeHorizontal() {
 /***
  * Starts parallel Sobel computation in vertical
  */
+
 void ompSobel::computeVertical() {
 
     omp_set_num_threads(getThreadsNum()); // SET NUMBER OF THREADS
@@ -176,7 +177,7 @@ void ompSobel::computeVertical() {
     unsigned char *input = (I.data);
     int step = I.step;
 
-    #pragma omp parallel for collapse(2) private(i,j)shared(w,h,outImage,chunks,I) schedule(static,chunkSize)
+    #pragma omp parallel for private(i,j) shared(w,h,outImage,chunks,I) schedule(static,chunkSize)
     for(j=1; j < w -1; j++) {
         for(i=1; i < h -1; i++) {
             try {
@@ -295,7 +296,7 @@ void ompSobel::computeBlocks(int numOfBlocks) {
                 j1 = (nRow) * heightStep + 1;
 
                 // block is scanned in parallel
-                #pragma omp parallel for schedule(static,widthStep) collapse(2) private(j,j1,i,i1,widthStep, heightStep) shared(I,outImage)
+                #pragma omp parallel for schedule(static,widthStep) private(j,i) shared(j1,i1,widthStep,heightStep,I,outImage)
                 for (j = j1; j < std::min(j1 + heightStep, h - 1); j++) {
                     for (i = i1; i < std::min(i1 + widthStep, w - 1); i++) {
 
