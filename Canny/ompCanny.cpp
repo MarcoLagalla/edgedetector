@@ -7,7 +7,7 @@
 
 #include <vector>
 #include <iostream>
-
+#include <fstream>
 
 #define HIGH_TRESHOLD 140
 #define LOW_THRESHOLD 70
@@ -19,6 +19,7 @@ ompCanny::ompCanny(cv::Mat inImage, const char *imgName, int size, double sigma)
     generateFilter(size, sigma); // create filter
 
 }
+
 
 /***
  * creates a gaussian filter of the given size with the specified sigma
@@ -56,226 +57,6 @@ void ompCanny::generateFilter(int size, double sigma) {
 
     gaussianFilter = filter;
 }
-
-/*
-void ompCanny::computeCannyEdgeDetector() {
-
-    outputImage = applyGaussianFilter();
-    outputImage = sobel(outputImage);
-    outputImage = nonMaximumSuppression(outputImage);
-    outputImage = doubleThreshold(outputImage);
-
-}
- */
-
-cv::Mat ompCanny::applyGaussianFilter(cv::Mat inputImage) {
-
-
-
-    cv::Mat outputImage = cv::Mat(inputImage.rows - 2*((int)gaussianFilter.size()/2), inputImage.cols - 2*((int)gaussianFilter.size()/2), CV_8UC1, cv::Scalar(0)); // creates an empty output image
-
-
-    // convolution is not well defined over borders
-
-
-    int size = (int)gaussianFilter.size()/2;
-
-    // first step --> Gaussian filtering of the image
-    omp_set_num_threads(numThreads); // SET NUMBER OF THREADS
-    int chunkSize = inputImage.cols / numThreads;
-
-    #pragma omp parallel for collapse(2) shared(inputImage, size, gaussianFilter) schedule(dynamic, chunkSize)
-    for (int i = size; i < inputImage.rows - size; i++)
-    {
-        for (int j = size; j < inputImage.cols - size; j++)
-        {
-            double sum = 0;
-
-          //  #pragma omp parallel for collapse(2) shared(gaussianFilter, inputImage, outputImage) reduction(+:sum) schedule(dynamic)
-            for (int x = 0; x < gaussianFilter.size(); x++)
-                for (int y = 0; y < gaussianFilter.size(); y++)
-                {
-                    sum += gaussianFilter[x][y] * (double)(inputImage.at<uchar>(i + x - size, j + y - size));
-                }
-
-            outputImage.at<uchar>(i-size, j-size) = sum;
-        }
-    }
-
-    return outputImage;
-
-}
-
-cv::Mat ompCanny::sobel(cv::Mat inputImage) {
-
-    //Sobel X Filter
-    double x1[] = {-1.0, 0, 1.0};
-    double x2[] = {-2.0, 0, 2.0};
-    double x3[] = {-1.0, 0, 1.0};
-
-    std::vector<std::vector<double>> xFilter(3);
-    xFilter[0].assign(x1, x1+3);
-    xFilter[1].assign(x2, x2+3);
-    xFilter[2].assign(x3, x3+3);
-
-    //Sobel Y Filter
-    double y1[] = {1.0, 2.0, 1.0};
-    double y2[] = {0, 0, 0};
-    double y3[] = {-1.0, -2.0, -1.0};
-
-    std::vector<std::vector<double>> yFilter(3);
-    yFilter[0].assign(y1, y1+3);
-    yFilter[1].assign(y2, y2+3);
-    yFilter[2].assign(y3, y3+3);
-
-    int size = (int)xFilter.size()/2;
-
-    cv::Mat outputImage = cv::Mat(inputImage.rows - 2*size, inputImage.cols - 2*size, CV_8UC1);
-
-    anglesMap = cv::Mat(inputImage.rows - 2*size, inputImage.cols - 2*size, CV_32FC1); //AngleMap
-
-    omp_set_num_threads(numThreads); // SET NUMBER OF THREADS
-
-    int chunkSize = inputImage.cols / numThreads;
-    #pragma omp parallel for collapse(2) shared(inputImage, outputImage, size) schedule(dynamic,chunkSize)
-    for (int i = size; i < inputImage.rows - size; i++)
-    {
-        for (int j = size; j < inputImage.cols - size; j++)
-        {
-            double sumx = 0;
-            double sumy = 0;
-
-           // #pragma omp parallel for collapse(2) shared(xFilter,yFilter) reduction(+: sumx, sumy)
-            for (int x = 0; x < xFilter.size(); x++)
-                for (int y = 0; y < xFilter.size(); y++)
-                {
-                    sumx += xFilter[x][y] * (double)(inputImage.at<uchar>(i + x - size, j + y - size)); //Sobel_X Filter Value
-                    sumy += yFilter[x][y] * (double)(inputImage.at<uchar>(i + x - size, j + y - size)); //Sobel_Y Filter Value
-                }
-
-            double sumxsq = sumx*sumx;
-            double sumysq = sumy*sumy;
-
-            double sq2 = sqrt(sumxsq + sumysq);
-
-            if(sq2 > 255) //Unsigned Char Fix
-                sq2 =255;
-            outputImage.at<uchar>(i-size, j-size) = sq2;
-
-            if(sumx==0) //Arctan Fix
-                anglesMap.at<float>(i-size, j-size) = 90;
-            else
-                anglesMap.at<float>(i-size, j-size) = atan(sumy/sumx);
-        }
-    }
-
-    return outputImage;
-
-
-}
-
-
-
-cv::Mat ompCanny::nonMaximumSuppression(cv::Mat inputImage) {
-
-    cv::Mat outputImage = cv::Mat(inputImage.rows-2, inputImage.cols-2, CV_8UC1);
-    omp_set_num_threads(numThreads); // SET NUMBER OF THREADS
-    #pragma omp parallel for collapse(2) schedule(dynamic) shared(inputImage,outputImage)
-    for (int i = 1; i < inputImage.rows -1 ; i++) {
-        for (int j = 1; j < inputImage.cols -1 ; j++) {
-
-            float tan = anglesMap.at<float>(i,j); // corresponding tangent value in angles map
-
-            outputImage.at<uchar>(i-1, j-1) = inputImage.at<uchar>(i,j);
-
-
-            //Horizontal Edge
-            if (((-22.5 < tan) && (tan <= 22.5)) || ((157.5 < tan) && (tan <= -157.5)))
-            {
-                if ((inputImage.at<uchar>(i,j) < inputImage.at<uchar>(i,j+1)) || (inputImage.at<uchar>(i,j) < inputImage.at<uchar>(i,j-1)))
-                    outputImage.at<uchar>(i-1, j-1) = 0;
-            }
-            //Vertical Edge
-            if (((-112.5 < tan) && (tan <= -67.5)) || ((67.5 < tan) && (tan <= 112.5)))
-            {
-                if ((inputImage.at<uchar>(i,j) < inputImage.at<uchar>(i+1,j)) || (inputImage.at<uchar>(i,j) < inputImage.at<uchar>(i-1,j)))
-                    outputImage.at<uchar>(i-1, j-1) = 0;
-            }
-
-            //-45 Degree Edge
-            if (((-67.5 < tan) && (tan <= -22.5)) || ((112.5 < tan) && (tan <= 157.5)))
-            {
-                if ((inputImage.at<uchar>(i,j) < inputImage.at<uchar>(i-1,j+1)) || (inputImage.at<uchar>(i,j) < inputImage.at<uchar>(i+1,j-1)))
-                    outputImage.at<uchar>(i-1, j-1) = 0;
-            }
-
-            //45 Degree Edge
-            if (((-157.5 < tan) && (tan <= -112.5)) || ((22.5 < tan) && (tan <= 67.5)))
-            {
-                if ((inputImage.at<uchar>(i,j) < inputImage.at<uchar>(i+1,j+1)) || (inputImage.at<uchar>(i,j) < inputImage.at<uchar>(i-1,j-1)))
-                    outputImage.at<uchar>(i-1, j-1) = 0;
-            }
-        }
-    }
-
-    return outputImage;
-
-}
-
-
-cv::Mat ompCanny::doubleThreshold(cv::Mat inputImage) {
-
-    cv::Mat outputImage = cv::Mat(inputImage.rows, inputImage.cols, CV_8UC1);
-
-    int chunkSize = inputImage.cols / numThreads;
-    #pragma omp parallel for collapse(2) shared(inputImage, outputImage)  schedule(dynamic,chunkSize) num_threads(numThreads)
-    for (int i = 0; i < inputImage.rows -1; i++) {
-        for (int j = 0; j < inputImage.cols -1; j++) {
-
-            int pixelVal = inputImage.at<uchar>(i,j);
-
-            if (pixelVal > HIGH_TRESHOLD) {
-                // strong edge
-                outputImage.at<uchar>(i,j) = 255;
-                continue; // not interesting
-            } else if ( pixelVal < HIGH_TRESHOLD && pixelVal > LOW_THRESHOLD) {
-
-                // is connected to a strong edge?
-                // check if region is feasible ( 8-bit neighbours)
-                // check neighbours
-            //    #pragma omp parallel for
-                for (int x = i-1 ; x < i+2; x++) {
-                    for (int y = j-1; y < j+2; y++) {
-
-                        if (x <= 0 || y <= 0 || x > inputImage.rows || y > inputImage.cols ) {
-                            // out of bounds
-                            continue;
-                        } else {
-                            // region is feasible
-                            int pVal = inputImage.at<uchar>(x,y);
-                            if (pVal >= HIGH_TRESHOLD) {
-                                outputImage.at<uchar>(i,j) = 255; // connected to a strong edge
-                                break;
-
-                            } else if( pVal < HIGH_TRESHOLD && pVal > LOW_THRESHOLD) {
-                                outputImage.at<uchar>(i,j) = 0;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-
-            } else if (pixelVal < LOW_THRESHOLD) {
-                outputImage.at<uchar>(i,j) = 0; // suppression
-            }
-
-
-        }
-    }
-    return outputImage;
-}
-
 
 
 cv::Mat ompCanny::computeCannyEdgeDetector_Horizontal() {
@@ -338,7 +119,7 @@ cv::Mat ompCanny::computeCannyEdgeDetector_Horizontal() {
 
     chunkSize = gaussianFiltered.cols / getChunksNum();
 
-    #pragma omp parallel for collapse(2) shared(gaussianFiltered, sobelFiltered, size,anglesMap) schedule(dynamic,chunkSize) num_threads(numThreads)
+    #pragma omp parallel for shared(gaussianFiltered, sobelFiltered, size,anglesMap) schedule(static,chunkSize) num_threads(numThreads)
     for (int i = size; i < gaussianFiltered.rows - size; i++)
     {
         for (int j = size; j < gaussianFiltered.cols - size; j++)
@@ -376,7 +157,7 @@ cv::Mat ompCanny::computeCannyEdgeDetector_Horizontal() {
     cv::Mat nonMaxSuppressed = cv::Mat(sobelFiltered.rows-2, sobelFiltered.cols-2, CV_8UC1);
 
     chunkSize = sobelFiltered.cols / getChunksNum();
-    #pragma omp parallel for collapse(2) schedule(dynamic,chunkSize) shared(sobelFiltered,nonMaxSuppressed,anglesMap) num_threads(numThreads)
+    #pragma omp parallel for schedule(static,chunkSize) shared(sobelFiltered,nonMaxSuppressed,anglesMap) num_threads(numThreads)
     for (int i = 1; i < sobelFiltered.rows -1 ; i++) {
         for (int j = 1; j < sobelFiltered.cols -1 ; j++) {
 
@@ -419,7 +200,7 @@ cv::Mat ompCanny::computeCannyEdgeDetector_Horizontal() {
 
     chunkSize = inputImage.cols / getChunksNum();
 
-    #pragma omp parallel for collapse(2) shared(nonMaxSuppressed, outputImage)  schedule(dynamic,chunkSize) num_threads(numThreads)
+    #pragma omp parallel for shared(nonMaxSuppressed, outputImage)  schedule(static,chunkSize) num_threads(numThreads)
     for (int i = 0; i < nonMaxSuppressed.rows -1; i++) {
         for (int j = 0; j < nonMaxSuppressed.cols -1; j++) {
 
@@ -478,7 +259,7 @@ cv::Mat ompCanny::computeCannyEdgeDetector_Vertical() {
     int size = (int)gaussianFilter.size()/2;
     int chunkSize = inputImage.rows / getChunksNum();
 
-    #pragma omp parallel for collapse(2) shared(inputImage,gaussianFiltered, size, gaussianFilter) schedule(dynamic, chunkSize) num_threads(numThreads)
+    #pragma omp parallel for shared(inputImage,gaussianFiltered, size, gaussianFilter) schedule(static, chunkSize) num_threads(numThreads)
 
     for (int j = size; j < inputImage.cols - size; j++)
     {
@@ -527,7 +308,7 @@ cv::Mat ompCanny::computeCannyEdgeDetector_Vertical() {
 
     chunkSize = gaussianFiltered.rows / getChunksNum();
 
-    #pragma omp parallel for collapse(2) shared(gaussianFiltered, sobelFiltered, size) schedule(dynamic,chunkSize) num_threads(numThreads)
+    #pragma omp parallel for shared(gaussianFiltered, sobelFiltered, size) schedule(static,chunkSize) num_threads(numThreads)
     for (int j = size; j < gaussianFiltered.cols - size; j++)
     {
         for (int i = size; i < gaussianFiltered.rows - size; i++)
@@ -566,7 +347,7 @@ cv::Mat ompCanny::computeCannyEdgeDetector_Vertical() {
 
     chunkSize = sobelFiltered.rows / getChunksNum();
 
-    #pragma omp parallel for collapse(2) schedule(dynamic,chunkSize) shared(sobelFiltered,nonMaxSuppressed) num_threads(numThreads)
+    #pragma omp parallel for schedule(static,chunkSize) shared(sobelFiltered,nonMaxSuppressed) num_threads(numThreads)
     for (int j = 1; j < sobelFiltered.cols -1 ; j++) {
         for (int i = 1; i < sobelFiltered.rows -1 ; i++) {
 
@@ -609,7 +390,7 @@ cv::Mat ompCanny::computeCannyEdgeDetector_Vertical() {
 
     chunkSize = inputImage.cols / getChunksNum();
 
-    #pragma omp parallel for collapse(2) shared(nonMaxSuppressed, outputImage)  schedule(dynamic,chunkSize) num_threads(numThreads)
+    #pragma omp parallel for shared(nonMaxSuppressed, outputImage)  schedule(static,chunkSize) num_threads(numThreads)
     for (int j = 0; j < nonMaxSuppressed.cols -1; j++){
         for (int i = 0; i < nonMaxSuppressed.rows -1; i++)  {
 
@@ -710,11 +491,11 @@ cv::Mat ompCanny::computeCannyEdgeDetector_Blocks(int numOfBlocks) {
     yFilter[2].assign(y3, y3+3);
 
     int size = (int)gaussianFilter.size()/2;
+    int sobelSize = (int)xFilter.size()/2;
+    cv::Mat filtered = cv::Mat(inputImage.rows - 2*size, inputImage.cols - 2*size, CV_8UC1, cv::Scalar(0)); // creates an empty output image
+    cv::Mat sobelled = cv::Mat(filtered.rows , filtered.cols, CV_8UC1, cv::Scalar(0));
 
-    cv::Mat filtered = cv::Mat(inputImage.rows - 2*((int)gaussianFilter.size()/2), inputImage.cols - 2*((int)gaussianFilter.size()/2), CV_8UC1, cv::Scalar(0)); // creates an empty output image
-    cv::Mat sobelled = cv::Mat(filtered.rows, filtered.cols, CV_8UC1, cv::Scalar(0));
-
-    anglesMap = cv::Mat(inputImage.rows - 2*((int)xFilter.size()/2), inputImage.cols - 2*((int)xFilter.size()/2), CV_32FC1); //AngleMap
+    anglesMap = cv::Mat(inputImage.rows - 2*sobelSize, inputImage.cols - 2*sobelSize, CV_32FC1); //AngleMap
 
 
     for (nCol = 0; nCol < numOfCols; nCol++) {
@@ -749,10 +530,8 @@ cv::Mat ompCanny::computeCannyEdgeDetector_Blocks(int numOfBlocks) {
 
             // STEP 2 sobel
             #pragma omp parallel for schedule(static,widthStep) private(i,j) shared(i1,j1,inputImage,filtered,sobelled,anglesMap,widthStep, heightStep,h,w,size) num_threads(numThreads)
-            for (j = j1; j < std::min(j1 + heightStep, filtered.rows - 1); j++) {
-                for (i = i1; i < std::min(i1 + widthStep, filtered.cols - 1); i++) {
-
-
+            for (j = j1; j < std::min(j1 + heightStep - sobelSize -1, filtered.rows - sobelSize - 1); j++) {
+                for (i = i1; i < std::min(i1 + widthStep - sobelSize -1, filtered.cols - sobelSize - 1); i++) {
 
                     double sumx = 0;
                     double sumy = 0;
@@ -771,8 +550,8 @@ cv::Mat ompCanny::computeCannyEdgeDetector_Blocks(int numOfBlocks) {
                     double sq2 = sqrt(sumxsq + sumysq);
 
                     if(sq2 > 255) //Unsigned Char Fix
-                        sq2 =255;
-                    sobelled.at<uchar>(i, j) = sq2;
+                        sq2 = 255;
+                    sobelled.at<uchar>(i-1, j-1) = sq2;
 
                     if(sumx==0) //Arctan Fixdd
                         anglesMap.at<float>(i-1, j-1) = 90;
@@ -783,11 +562,11 @@ cv::Mat ompCanny::computeCannyEdgeDetector_Blocks(int numOfBlocks) {
                 }
             }
 
-        #pragma omp barrier
-        {
-            i1 = (nCol) * widthStep + 1;
-            j1 = (nRow) * heightStep + 1;
-        };
+            #pragma omp barrier
+            {
+                i1 = (nCol) * widthStep + 1;
+                j1 = (nRow) * heightStep + 1;
+            };
 
             cv::Mat nonMaxSuppressed = cv::Mat(sobelled.rows, sobelled.cols, CV_8UC1);
 
@@ -890,20 +669,7 @@ cv::Mat ompCanny::computeCannyEdgeDetector_Blocks(int numOfBlocks) {
         }
     }
 
-
-
-
-
-    /*
-     *             cv::namedWindow("blocco", cv::WINDOW_NORMAL);
-            imshow("blocco", outputImage);
-            cv::waitKey(0);
-     */
-        // sync
         return outputImage;
-
-
-
 }
 
 void ompCanny::showOutputImage(char* title) {

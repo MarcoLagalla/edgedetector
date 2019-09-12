@@ -12,12 +12,8 @@
 #include "Canny/Canny.h"
 #include "Canny/ompCanny.h"
 
-#define REPETITIONS 5
+#define REPETITIONS 10
 #define MAX_FILES 50
-
-#define CHUNKS 4
-#define THREADS 4
-
 
 #define CANNY_FILTER_SIZE 5
 #define CANNY_FILTER_SIGMA 2
@@ -28,10 +24,27 @@ std::vector<double> parallelHorizontalExecution(int times,const char *inputImgFo
 std::vector<double> parallelVerticalExecution(int times,const char *inputImgFolder);
 std::vector<double> parallelBlocksExecution(int times, int nBlocks, const char *inputImgFolder);
 
+int CHUNKS = 8;
+int THREADS = 8;
 
 
-int main() {
+std::ofstream myFile;
+int main(int argc, char** argv) {
 
+    if (argc == 5) {
+        // arguments mode
+        // usage: edgedetector -t <threads> -c <chunks>
+        THREADS = atoi(argv[2]);
+        CHUNKS = atoi(argv[4]);
+    }
+
+    std::string file = "result " + std::to_string(THREADS) + "T-" + std::to_string(CHUNKS) + "C.txt";
+
+    // save output buffer of cout
+    std::streambuf * strm_buffer = std::cout.rdbuf();
+
+    // redirect output into file
+    myFile.open(file);
 
     std::cout << "Welcome to Sobel edges detector :)" << std::endl;
 
@@ -50,6 +63,7 @@ int main() {
                    // do nothing
                 } else {
                     std::cout << "Processing folder: " << ent->d_name << "\n\n";
+                    myFile << "[" << ent->d_name << "]\n";
                     std::string buf(inputImgFolder);
                     buf.append(ent->d_name);
                     buf.append("/"); // hard coded ? :)
@@ -66,6 +80,8 @@ int main() {
 
     std::cout << "Done, bye :)";
 
+    myFile << "Terminated\n";
+    myFile.close();
     return 0;
 }
 
@@ -87,12 +103,18 @@ void readFolder(const char *inputImgFolder) {
     std::vector<double> horizontal = parallelHorizontalExecution(REPETITIONS,inputImgFolder);
     std::cout << "Computation time:\n\t\tSobel: " << horizontal[0] / 1000 << "[msec]\n\t\tCanny: " << horizontal[1] / 1000 << "[msec]" << std::endl;
 
+
+    myFile << "Serial:\t" << serial[0] /1000 << "\t" << serial[1] / 1000 << "\n";
+    myFile << "Vertical:\t" << vertical[0] / 1000 << "\t" << vertical[1] / 1000 << "\n";
+    myFile << "Horizontal:\t" << horizontal[0] / 1000 << "\t" << horizontal[1] / 1000<< "\n";
+
     // try different block numbers --> 8 - 16 - 32 - 64
     for (int i = 3; i < 7; i++) {
         int nBlocks = pow(2,i);
         std::cout << "\t[PARALLEL - "<< nBlocks << " BLOCKS] ";
         std::vector<double> blocks = parallelBlocksExecution(REPETITIONS,nBlocks, inputImgFolder);
         std::cout << "Computation time:\n\t\tSobel: " << blocks[0] / 1000 << "[msec]\n\t\tCanny: " << blocks[1] / 1000 << "[msec]" << std::endl;
+        myFile << "Blocks - [" << nBlocks << "]\t" << blocks[0] / 1000<< "\t" << blocks[1] / 1000 << "\n";
     }
 
     // speed up
@@ -109,6 +131,11 @@ void readFolder(const char *inputImgFolder) {
     std::cout << "------------------------------------" << std::endl;
     std::cout << "Canny\t\t\t" <<  hSpeedUP_Canny << "\t\t" << vSpeedUP_Canny << std::endl;
     std::cout << "------------------------------------" << std::endl;
+
+
+
+
+
  }
 
  /***
