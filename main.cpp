@@ -13,7 +13,7 @@
 #include "Canny/Canny.h"
 #include "Canny/ompCanny.h"
 
-#define REPETITIONS 1
+#define REPETITIONS 10
 #define MAX_FILES 50
 
 #define CANNY_FILTER_SIZE 5
