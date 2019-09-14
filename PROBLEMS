@@ -1,6 +1,0 @@
-
-2) suddivisione a blocchi non funziona se parallellizato nella chiamata
-3) fermarlo a MAX_FILES
-
-
-4) speedup in verticale maggiore dell' orizzontale ?? per alcune dimensioni di immagine
