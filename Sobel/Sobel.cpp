@@ -103,6 +103,7 @@ cv::Mat Sobel::processMatrix(cv::Mat inputImage) {
 
 
     unsigned char *input = (I.data);
+
     int step = I.step;
 
     for(int i=1; i < inputImage.rows -1; i++) {

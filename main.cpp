@@ -5,6 +5,7 @@
 #include <fstream>
 #include <omp.h>
 #include <vector>
+#include <map>
 
 #include "Sobel/Sobel.h"
 #include "Sobel/ompSobel.h"
@@ -12,13 +13,13 @@
 #include "Canny/Canny.h"
 #include "Canny/ompCanny.h"
 
-#define REPETITIONS 10
-#define MAX_FILES 50
+#define REPETITIONS 1
+#define MAX_FILES 1
 
 #define CANNY_FILTER_SIZE 5
 #define CANNY_FILTER_SIGMA 2
 
-void readFolder(const char *inputImgFolder);
+void readFolder(const char *inputImgFolder, char name[]);
 std::vector<double> serialExecution(int times,const char *inputImgFolder);
 std::vector<double> parallelHorizontalExecution(int times,const char *inputImgFolder);
 std::vector<double> parallelVerticalExecution(int times,const char *inputImgFolder);
@@ -29,22 +30,26 @@ int THREADS = 8;
 
 
 std::ofstream myFile;
+bool writePerformances = 0;
+
 int main(int argc, char** argv) {
 
-    if (argc == 5) {
+    if (argc >= 5) {
         // arguments mode
         // usage: edgedetector -t <threads> -c <chunks>
         THREADS = atoi(argv[2]);
         CHUNKS = atoi(argv[4]);
+        if (argc == 6 && strcmp(argv[5],"-w")) {
+            // write performance file
+            writePerformances = 1;
+        }
     }
 
-    std::string file = "result " + std::to_string(THREADS) + "T-" + std::to_string(CHUNKS) + "C.txt";
+    if (writePerformances) {
 
-    // save output buffer of cout
-    std::streambuf * strm_buffer = std::cout.rdbuf();
-
-    // redirect output into file
-    myFile.open(file);
+        std::string file = "result " + std::to_string(THREADS) + "T-" + std::to_string(CHUNKS) + "C.txt";
+        myFile.open(file);
+    }
 
     std::cout << "Welcome to Sobel edges detector :)" << std::endl;
 
@@ -63,12 +68,12 @@ int main(int argc, char** argv) {
                    // do nothing
                 } else {
                     std::cout << "Processing folder: " << ent->d_name << "\n\n";
-                    myFile << "[" << ent->d_name << "]\n";
+                    if (writePerformances) myFile << "[" << ent->d_name << "]\n";
                     std::string buf(inputImgFolder);
                     buf.append(ent->d_name);
                     buf.append("/"); // hard coded ? :)
 
-                    readFolder(buf.c_str());
+                    readFolder(buf.c_str(), ent->d_name);
 
                 }
 
@@ -80,8 +85,10 @@ int main(int argc, char** argv) {
 
     std::cout << "Done, bye :)";
 
-    myFile << "Terminated\n";
-    myFile.close();
+    if (writePerformances) {
+        myFile << "Terminated\n";
+        myFile.close();
+    }
     return 0;
 }
 
@@ -89,32 +96,35 @@ int main(int argc, char** argv) {
  * scan all image files into the given folder and make computation for serial, horizontal and vertical
  * @param inputImgFolder
  */
-void readFolder(const char *inputImgFolder) {
+void readFolder(const char *inputImgFolder, char name[]) {
 
     std::cout << "\t[SERIAL] ";
     std::vector<double> serial = serialExecution(REPETITIONS,inputImgFolder);
-    std::cout << "Computation time:\n\t\tSobel: " << serial[0] / 1000 << "[msec]\n\t\tCanny: " << serial[1] / 1000 << "[msec]" << std::endl;
+
+    std::cout << "Computation time:\n\t\tSobel: " << serial[0] * 1000 << "[msec]\n\t\tCanny: " << serial[1] * 1000 << "[msec]" << std::endl;
 
     std::cout << "\t[PARALLEL - VERTICAL] ";
     std::vector<double> vertical = parallelVerticalExecution(REPETITIONS,inputImgFolder);
-    std::cout << "Computation time:\n\t\tSobel: " << vertical[0] / 1000 << "[msec]\n\t\tCanny: " << vertical[1] / 1000 << "[msec]" << std::endl;
+    std::cout << "Computation time:\n\t\tSobel: " << vertical[0] * 1000 << "[msec]\n\t\tCanny: " << vertical[1] * 1000 << "[msec]" << std::endl;
 
     std::cout << "\t[PARALLEL - HORIZONTAl] ";
     std::vector<double> horizontal = parallelHorizontalExecution(REPETITIONS,inputImgFolder);
-    std::cout << "Computation time:\n\t\tSobel: " << horizontal[0] / 1000 << "[msec]\n\t\tCanny: " << horizontal[1] / 1000 << "[msec]" << std::endl;
+    std::cout << "Computation time:\n\t\tSobel: " << horizontal[0] * 1000 << "[msec]\n\t\tCanny: " << horizontal[1] * 1000 << "[msec]" << std::endl;
 
+    if (writePerformances) {
 
-    myFile << "Serial:\t" << serial[0] /1000 << "\t" << serial[1] / 1000 << "\n";
-    myFile << "Vertical:\t" << vertical[0] / 1000 << "\t" << vertical[1] / 1000 << "\n";
-    myFile << "Horizontal:\t" << horizontal[0] / 1000 << "\t" << horizontal[1] / 1000<< "\n";
+        myFile << "Serial:\t" << serial[0] * 1000 << "\t" << serial[1] * 1000 << "\n";
+        myFile << "Vertical:\t" << vertical[0] * 1000 << "\t" << vertical[1] * 1000 << "\n";
+        myFile << "Horizontal:\t" << horizontal[0] * 1000 << "\t" << horizontal[1] * 1000<< "\n";
+    }
 
     // try different block numbers --> 8 - 16 - 32 - 64
     for (int i = 3; i < 7; i++) {
         int nBlocks = pow(2,i);
         std::cout << "\t[PARALLEL - "<< nBlocks << " BLOCKS] ";
         std::vector<double> blocks = parallelBlocksExecution(REPETITIONS,nBlocks, inputImgFolder);
-        std::cout << "Computation time:\n\t\tSobel: " << blocks[0] / 1000 << "[msec]\n\t\tCanny: " << blocks[1] / 1000 << "[msec]" << std::endl;
-        myFile << "Blocks - [" << nBlocks << "]\t" << blocks[0] / 1000<< "\t" << blocks[1] / 1000 << "\n";
+        std::cout << "Computation time:\n\t\tSobel: " << blocks[0] * 1000 << "[msec]\n\t\tCanny: " << blocks[1] * 1000 << "[msec]" << std::endl;
+        if (writePerformances) myFile << "Blocks - [" << nBlocks << "]\t" << blocks[0] * 1000<< "\t" << blocks[1] * 1000 << "\n";
     }
 
     // speed up
@@ -133,8 +143,14 @@ void readFolder(const char *inputImgFolder) {
     std::cout << "------------------------------------" << std::endl;
 
 
-
-
+    if (writePerformances) {
+        myFile << "\n\nSpeedUp:\t\t" << "H\t\t\tV\n";
+        myFile << "------------------------------------\n";
+        myFile << "Sobel\t\t\t" <<  hSpeedUP_Sobel << "\t\t" << vSpeedUP_Sobel << "\n";
+        myFile << "------------------------------------\n";
+        myFile << "Canny\t\t\t" <<  hSpeedUP_Canny << "\t\t" << vSpeedUP_Canny << "\n";
+        myFile << "------------------------------------\n";
+    }
 
  }
 
@@ -180,17 +196,21 @@ std::vector<double> serialExecution(int times,const char *inputImgFolder) {
 
                         cv::Mat inputImage = imread(buf.c_str() , cv::IMREAD_GRAYSCALE);
 
-                        auto startSerialExecutionTime_Sobel = std::chrono::high_resolution_clock::now();
+                        auto startSobel = std::chrono::high_resolution_clock::now();
+
                         Sobel mySobel(inputImage,buf.c_str());
-                        auto endSerialExecutionTime_Sobel = std::chrono::high_resolution_clock::now();
 
-                        duration_Sobel += std::chrono::duration_cast<std::chrono::microseconds>(endSerialExecutionTime_Sobel - startSerialExecutionTime_Sobel).count();
+                        std::chrono::duration<double> time_cpu_Sobel =  std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startSobel);
+                        duration_Sobel += time_cpu_Sobel.count();
 
-                        auto startSerialExecutionTime_Canny = std::chrono::high_resolution_clock::now();
+
+                        auto startCanny = std::chrono::high_resolution_clock::now();
+
                         Canny myCanny(inputImage, buf.c_str(), CANNY_FILTER_SIZE, CANNY_FILTER_SIGMA);
                         myCanny.computeCannyEdgeDetector();
-                        auto endSerialExecutionTime_Canny = std::chrono::high_resolution_clock::now();
-                        duration_Canny += std::chrono::duration_cast<std::chrono::microseconds>(endSerialExecutionTime_Canny - startSerialExecutionTime_Canny).count();
+
+                        std::chrono::duration<double> time_cpu_Canny = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startCanny);
+                        duration_Canny += time_cpu_Sobel.count();
 
                         i++;
 
@@ -210,8 +230,11 @@ std::vector<double> serialExecution(int times,const char *inputImgFolder) {
         }
     }
 
-    executionTime.push_back(duration_Sobel / times);
-    executionTime.push_back(duration_Canny / times);
+    duration_Sobel = duration_Sobel / times;
+    duration_Canny = duration_Canny / times;
+
+    executionTime.push_back(duration_Sobel);
+    executionTime.push_back(duration_Canny);
 
     return executionTime; // average time over #times repetitions
 }
@@ -260,23 +283,27 @@ std::vector<double> parallelHorizontalExecution(int times,const char *inputImgFo
                             cv::Mat inputImage = imread(buf.c_str(), cv::IMREAD_GRAYSCALE);
 
 
-                            auto startParallelHorizontalExecutionTime_Sobel = std::chrono::high_resolution_clock::now();
+                            auto startSobel = std::chrono::high_resolution_clock::now();
+
                             ompSobel mySobel(inputImage, buf.c_str());
                             mySobel.setThreadsNum(THREADS);   // set threads number
                             mySobel.setChunksNum(CHUNKS);     // how many chunks for image subdivision
                             mySobel.computeHorizontal();      // start computation
-                            auto endParallelHorizontalExecutionTime_Sobel = std::chrono::high_resolution_clock::now();
 
-                            duration_Sobel += std::chrono::duration_cast<std::chrono::microseconds>(endParallelHorizontalExecutionTime_Sobel - startParallelHorizontalExecutionTime_Sobel).count();
+                            std::chrono::duration<double> time_cpu_Sobel =  std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startSobel);
+                            duration_Sobel += time_cpu_Sobel.count();
 
 
-                            auto startParallelExecutionTime_Canny = std::chrono::high_resolution_clock::now();
+
+                            auto startCanny = std::chrono::high_resolution_clock::now();
+
                             ompCanny myCanny(inputImage, buf.c_str(), CANNY_FILTER_SIZE, CANNY_FILTER_SIGMA);
                             myCanny.setThreadsNum(THREADS);
                             myCanny.setChunksNum(CHUNKS);
                             myCanny.computeCannyEdgeDetector_Horizontal();
-                            auto endParallelExecutionTime_Canny = std::chrono::high_resolution_clock::now();
-                            duration_Canny += std::chrono::duration_cast<std::chrono::microseconds>(endParallelExecutionTime_Canny - startParallelExecutionTime_Canny).count();
+
+                            std::chrono::duration<double> time_cpu_Canny = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startCanny);
+                            duration_Canny += time_cpu_Sobel.count();
 
                             i++;
 
@@ -298,8 +325,11 @@ std::vector<double> parallelHorizontalExecution(int times,const char *inputImgFo
     }
 
 
-    executionTime.push_back(duration_Sobel / times);
-    executionTime.push_back(duration_Canny / times);
+    duration_Sobel = duration_Sobel / times;
+    duration_Canny = duration_Canny / times;
+
+    executionTime.push_back(duration_Sobel);
+    executionTime.push_back(duration_Canny);
 
     return executionTime; // average time
 }
@@ -347,24 +377,27 @@ std::vector<double> parallelVerticalExecution(int times, const char *inputImgFol
 
                             cv::Mat inputImage = imread(buf.c_str(), cv::IMREAD_GRAYSCALE);
 
+                            auto startSobel = std::chrono::high_resolution_clock::now();
 
-                            auto startParallelVerticalExecutionTime_Sobel = std::chrono::high_resolution_clock::now();
                             ompSobel mySobel(inputImage, buf.c_str());
                             mySobel.setThreadsNum(THREADS);   // set threads number
                             mySobel.setChunksNum(CHUNKS);     // how many chunks for image subdivision
                             mySobel.computeHorizontal();      // start computation
-                            auto endParallelVerticalExecutionTime_Sobel = std::chrono::high_resolution_clock::now();
 
-                            duration_Sobel += std::chrono::duration_cast<std::chrono::microseconds>(endParallelVerticalExecutionTime_Sobel - startParallelVerticalExecutionTime_Sobel).count();
+                            std::chrono::duration<double> time_cpu_Sobel =  std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startSobel);
+                            duration_Sobel += time_cpu_Sobel.count();
 
 
-                            auto startParallelVerticalExecutionTime_Canny = std::chrono::high_resolution_clock::now();
+                            auto startCanny = std::chrono::high_resolution_clock::now();
+
                             ompCanny myCanny(inputImage, buf.c_str(), CANNY_FILTER_SIZE, CANNY_FILTER_SIGMA);
                             myCanny.setThreadsNum(THREADS);
                             myCanny.setChunksNum(CHUNKS);
                             myCanny.computeCannyEdgeDetector_Vertical();
-                            auto endParallelVerticalExecutionTime_Canny = std::chrono::high_resolution_clock::now();
-                            duration_Canny += std::chrono::duration_cast<std::chrono::microseconds>(endParallelVerticalExecutionTime_Canny - startParallelVerticalExecutionTime_Canny).count();
+
+                            std::chrono::duration<double> time_cpu_Canny = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startCanny);
+                            duration_Canny += time_cpu_Sobel.count();
+
 
                             i++;
 
@@ -383,8 +416,11 @@ std::vector<double> parallelVerticalExecution(int times, const char *inputImgFol
             perror("");
         }
     }
-    executionTime.push_back(duration_Sobel / times);
-    executionTime.push_back(duration_Canny / times);
+    duration_Sobel = duration_Sobel / times;
+    duration_Canny = duration_Canny / times;
+
+    executionTime.push_back(duration_Sobel);
+    executionTime.push_back(duration_Canny);
     return executionTime; // average time
 }
 
@@ -429,21 +465,24 @@ std::vector<double> parallelBlocksExecution(int times, int nBlocks, const char *
 
                             cv::Mat inputImage = imread(buf.c_str(), cv::IMREAD_GRAYSCALE);
 
-                            auto startParallelBlocksExecutionTime_Sobel = std::chrono::high_resolution_clock::now();
+                            auto startSobel = std::chrono::high_resolution_clock::now();
+
                             ompSobel mySobel(inputImage, buf.c_str());
                             mySobel.setThreadsNum(THREADS);
                             mySobel.computeBlocks(nBlocks);
-                            auto endParallelBlocksExecutionTime_Sobel = std::chrono::high_resolution_clock::now();
 
-                            duration_Sobel += std::chrono::duration_cast<std::chrono::microseconds>(endParallelBlocksExecutionTime_Sobel - startParallelBlocksExecutionTime_Sobel).count();
+                            std::chrono::duration<double> time_cpu_Sobel =  std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startSobel);
+                            duration_Sobel += time_cpu_Sobel.count();
 
 
-                            auto startParallelBlocksExecutionTime_Canny = std::chrono::high_resolution_clock::now();
+                            auto startCanny = std::chrono::high_resolution_clock::now();
+
                             ompCanny myCanny(inputImage, buf.c_str(), CANNY_FILTER_SIZE, CANNY_FILTER_SIGMA);
                             myCanny.setThreadsNum(THREADS);
                             myCanny.computeCannyEdgeDetector_Blocks(nBlocks);
-                            auto endParallelBlocksExecutionTime_Canny = std::chrono::high_resolution_clock::now();
-                            duration_Canny += std::chrono::duration_cast<std::chrono::microseconds>(endParallelBlocksExecutionTime_Canny - startParallelBlocksExecutionTime_Canny).count();
+
+                            std::chrono::duration<double> time_cpu_Canny = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startCanny);
+                            duration_Canny += time_cpu_Sobel.count();
 
                             i++;
 
@@ -462,7 +501,10 @@ std::vector<double> parallelBlocksExecution(int times, int nBlocks, const char *
             perror("");
         }
     }
-    executionTime.push_back(duration_Sobel / times);
-    executionTime.push_back(duration_Canny / times);
+    duration_Sobel = duration_Sobel / times;
+    duration_Canny = duration_Canny / times;
+
+    executionTime.push_back(duration_Sobel);
+    executionTime.push_back(duration_Canny);
     return executionTime; // average time
 }
