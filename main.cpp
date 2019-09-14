@@ -14,7 +14,7 @@
 #include "Canny/ompCanny.h"
 
 #define REPETITIONS 1
-#define MAX_FILES 1
+#define MAX_FILES 50
 
 #define CANNY_FILTER_SIZE 5
 #define CANNY_FILTER_SIGMA 2
@@ -30,7 +30,7 @@ int THREADS = 8;
 
 
 std::ofstream myFile;
-bool writePerformances = 0;
+bool writePerformances = 1;
 
 int main(int argc, char** argv) {
 
@@ -210,7 +210,7 @@ std::vector<double> serialExecution(int times,const char *inputImgFolder) {
                         myCanny.computeCannyEdgeDetector();
 
                         std::chrono::duration<double> time_cpu_Canny = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startCanny);
-                        duration_Canny += time_cpu_Sobel.count();
+                        duration_Canny += time_cpu_Canny.count();
 
                         i++;
 
@@ -303,7 +303,7 @@ std::vector<double> parallelHorizontalExecution(int times,const char *inputImgFo
                             myCanny.computeCannyEdgeDetector_Horizontal();
 
                             std::chrono::duration<double> time_cpu_Canny = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startCanny);
-                            duration_Canny += time_cpu_Sobel.count();
+                            duration_Canny += time_cpu_Canny.count();
 
                             i++;
 
@@ -382,7 +382,7 @@ std::vector<double> parallelVerticalExecution(int times, const char *inputImgFol
                             ompSobel mySobel(inputImage, buf.c_str());
                             mySobel.setThreadsNum(THREADS);   // set threads number
                             mySobel.setChunksNum(CHUNKS);     // how many chunks for image subdivision
-                            mySobel.computeHorizontal();      // start computation
+                            mySobel.computeVertical();      // start computation
 
                             std::chrono::duration<double> time_cpu_Sobel =  std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startSobel);
                             duration_Sobel += time_cpu_Sobel.count();
@@ -396,7 +396,7 @@ std::vector<double> parallelVerticalExecution(int times, const char *inputImgFol
                             myCanny.computeCannyEdgeDetector_Vertical();
 
                             std::chrono::duration<double> time_cpu_Canny = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startCanny);
-                            duration_Canny += time_cpu_Sobel.count();
+                            duration_Canny += time_cpu_Canny.count();
 
 
                             i++;
@@ -482,7 +482,7 @@ std::vector<double> parallelBlocksExecution(int times, int nBlocks, const char *
                             myCanny.computeCannyEdgeDetector_Blocks(nBlocks);
 
                             std::chrono::duration<double> time_cpu_Canny = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startCanny);
-                            duration_Canny += time_cpu_Sobel.count();
+                            duration_Canny += time_cpu_Canny.count();
 
                             i++;
 

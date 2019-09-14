@@ -288,15 +288,15 @@ void ompSobel::computeBlocks(int numOfBlocks) {
 
    // #pragma omp parallel private(i1,j1,i,j,nCol,nRow) shared(w,h,outImage,I,widthStep,heightStep,numOfCols,numOfRows)
     {
-        //#pragma omp parallel for collapse(2) schedule(dynamic)
+        #pragma omp parallel for schedule(static)  private(j,i,j1,i1) shared(widthStep,heightStep,I,outImage)
         for (nCol = 0; nCol < numOfCols; nCol++) {
             for (nRow = 0; nRow < numOfRows; nRow++) {
 
                 i1 = (nCol) * widthStep + 1;
                 j1 = (nRow) * heightStep + 1;
-
+               // cv::Mat tempBlock = cv::Mat(heightStep,widthStep, CV_8UC1, cvScalar(0));
                 // block is scanned in parallel
-                #pragma omp parallel for schedule(static,widthStep) private(j,i) shared(j1,i1,widthStep,heightStep,I,outImage)
+                #pragma omp parallel for schedule(static)//schedule(dynamic,widthStep) private(j,i) shared(j1,i1,widthStep,heightStep,I,outImage)
                 for (j = j1; j < std::min(j1 + heightStep, h - 1); j++) {
                     for (i = i1; i < std::min(i1 + widthStep, w - 1); i++) {
 
@@ -325,6 +325,7 @@ void ompSobel::computeBlocks(int numOfBlocks) {
 
                             outImage.at<uchar>(i, j) = gradVal;
 
+
                             //
                         } catch (const cv::Exception &e) {
                             std::cerr << e.what() << " in file: " << getInputImageFileName() << std::endl;
@@ -332,12 +333,10 @@ void ompSobel::computeBlocks(int numOfBlocks) {
                     }
                 }
                 blockID++;
+
                 //UNCOMMMENT TO SEE BLOCKS
-                /*  std::string title = "Blocco " + std::to_string(idBlocco) + " di " + std::to_string(numOfBlocks);
-                    cv::namedWindow(title.c_str(), CV_WINDOW_NORMAL);
-                    imshow(title.c_str(), outImage);
-                    cv::waitKey(0);
-                */
+
+
 
             }
 
